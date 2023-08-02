@@ -17,6 +17,16 @@ MURIM is a novel approach designed to enhance Federated Learning (FL) by incorpo
 
 ## Installation
 
+* Step 1 Install pipenv
+```
+pip install pipenv
+```
+
+* Step 2 Install require package
+```
+pipenv install
+```
+
 ## Usage
 
 ## Examples
@@ -28,8 +38,8 @@ MURIM is a novel approach designed to enhance Federated Learning (FL) by incorpo
 
 ### ToDo List
 
-- [ ] Add a README file
-- [ ] Add Federated Learning Framework
+- [x] Add a README file
+- [x] Add Federated Learning Framework
 - [ ] Add IOT Simulation
 - [ ] Add Reputation System
 - [ ] Add Attack simulator
