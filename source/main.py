@@ -1,32 +1,57 @@
-import flwr as fl
-from data_utils import display_sample, NUM_CLIENTS, load_datasets
-from model import Net
-from flower_client import FlowerClient, client_fn
+import os
 import torch
+import flwr as fl
+from typing import Dict, List, Tuple, Optional
+from data_utils import display_sample, load_datasets
+from flower_client import client_fn, DEVICE
+from model import Net, get_parameters, test, set_parameters
 
-# Display a sample of images from the dataset
+# Constants
+NUM_CLIENTS = int(os.getenv("NUM_CLIENTS", 10))
+NUM_ROUNDS = int(os.getenv("NUM_ROUNDS", 3))
+FRACTION_FIT = float(os.getenv("FRACTION_FIT", 0.3))
+FRACTION_EVALUATE = float(os.getenv("FRACTION_EVALUATE", 0.3))
+MIN_FIT_CLIENTS = int(os.getenv("MIN_FIT_CLIENTS", 3))
+MIN_EVALUATE_CLIENTS = int(os.getenv("MIN_EVALUATE_CLIENTS", 3))
+
+# Load data
 trainloaders, valloaders, testloader = load_datasets()
 display_sample(trainloaders)
 
-# Create FedAvg strategy
+# Federated Learning Strategy
+
+
+def evaluate(server_round: int, parameters: fl.common.NDArrays, config: Dict[str, fl.common.Scalar]) -> Optional[Tuple[float, Dict[str, fl.common.Scalar]]]:
+    net = Net().to(DEVICE)
+    valloader = valloaders[0]
+    set_parameters(net, parameters)
+    loss, accuracy = test(net, valloader)
+    print(f"Server-side evaluation loss {loss} / accuracy {accuracy}")
+    return loss, {"accuracy": accuracy}
+
+
+def fit_config(server_round: int):
+    config = {
+        "server_round": server_round,
+        "local_epochs": 1 if server_round < 2 else 2,
+    }
+    return config
+
+
 strategy = fl.server.strategy.FedAvg(
-    fraction_fit=1.0,  # Sample 100% of available clients for training
-    fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-    min_fit_clients=10,  # Never sample less than 10 clients for training
-    min_evaluate_clients=5,  # Never sample less than 5 clients for evaluation
-    min_available_clients=10,  # Wait until all 10 clients are available
+    fraction_fit=FRACTION_FIT,
+    fraction_evaluate=FRACTION_EVALUATE,
+    min_fit_clients=MIN_FIT_CLIENTS,
+    min_evaluate_clients=MIN_EVALUATE_CLIENTS,
+    min_available_clients=NUM_CLIENTS,
+    initial_parameters=fl.common.ndarrays_to_parameters(get_parameters(Net())),
+    evaluate_fn=evaluate,
+    on_fit_config_fn=fit_config,
 )
 
-# Specify client resources if you need GPU (defaults to 1 CPU and 0 GPU)
-client_resources = None
-# if torch.device("cuda").type == "cuda":
-#     client_resources = {"num_gpus": 1}
-
-# Start simulation
 fl.simulation.start_simulation(
-    client_fn=client_fn,
+    client_fn=client_fn,  # This should be imported from flower_client
     num_clients=NUM_CLIENTS,
-    config=fl.server.ServerConfig(num_rounds=5),
-    strategy=strategy,
-    client_resources=client_resources,
+    config=fl.server.ServerConfig(num_rounds=NUM_ROUNDS),
+    strategy=strategy
 )

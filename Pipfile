@@ -8,6 +8,7 @@ flwr = {version = "*", extras = ["simulation"]}
 torch = "*"
 torchvision = "*"
 matplotlib = "*"
+python-dotenv = "*"
 
 [dev-packages]
 
